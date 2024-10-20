@@ -21,6 +21,8 @@ URL_SUCCESS = reverse('notes:success')
 
 
 class TestLogic(TestCase):
+    """Тестирование создания заметок."""
+
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create(username='Пользователь-Автор-1')
@@ -34,7 +36,7 @@ class TestLogic(TestCase):
         )
         cls.title = 'text_1'
         cls.form_data = {
-            'text': 'text_2', 'title': 'title_2'
+            'text': 'text_2', 'title': 'title_2', 'slug': SLUG_NOTE_UNIQUE
         }
 
     def test_anonymous_user_cant_create_note(self):
@@ -54,31 +56,42 @@ class TestLogic(TestCase):
         self.assertEqual(created_note.title, self.form_data['title'])
         self.assertEqual(created_note.text, self.form_data['text'])
         self.assertEqual(created_note.author, self.user)
+        self.assertEqual(created_note.slug, self.form_data['slug'])
 
     def test_same_slug(self):
         """Невозможно создать две заметки с одинаковым slug."""
+        notes_count_before = Note.objects.count()
         response = self.auth_client.post(
             URL_ADD, data={'slug': SLUG_NOTE_UNIQUE}
         )
         self.assertFormError(
             response, 'form', 'slug', self.note_1.slug + WARNING
         )
+        notes_count_after = Note.objects.count()
+        self.assertEqual(notes_count_before, notes_count_after)
 
     def test_slugify_works(self):
-        """
+        """Проверка работы slugify.
         Если при создании заметки не заполнен slug, то он формируется
         автоматически, с помощью функции pytils.translit.slugify.
         """
         Note.objects.all().delete()
-        self.auth_client.post(URL_ADD, data=self.form_data)
+        form_data_no_slug = self.form_data.copy()
+        form_data_no_slug.pop('slug')
+        self.auth_client.post(URL_ADD, data=form_data_no_slug)
         notes_count = Note.objects.filter(author=self.user).count()
         self.assertEqual(notes_count, 1)
-        slug_from_form = slugify(self.form_data.pop('title'))[:100]
+        slug_from_form = slugify(form_data_no_slug['title'])[:100]
         created_note = Note.objects.latest('id')
         self.assertEqual(created_note.slug, slug_from_form)
+        self.assertEqual(created_note.title, form_data_no_slug['title'])
+        self.assertEqual(created_note.text, form_data_no_slug['text'])
+        self.assertEqual(created_note.author, self.user)
 
 
 class TestCreatePost(TestCase):
+    """Тестирование редактирования и удаления заметок."""
+
     OLD_NOTE_TEXT = 'OLD TEXT'
     NEW_NOTE_TEXT = 'UPDATED TEXT'
 
@@ -112,7 +125,7 @@ class TestCreatePost(TestCase):
         response = self.author_client.delete(self.delete_url)
         self.assertRedirects(response, self.success_url)
         notes_count_after = Note.objects.filter(author=self.author).count()
-        self.assertEqual(notes_count_before, notes_count_after + 1)
+        self.assertEqual(notes_count_before - 1, notes_count_after)
 
     def test_user_cant_delete_note_of_another_user(self):
         """Пользователь не может удалять чужие заметки."""
@@ -130,9 +143,10 @@ class TestCreatePost(TestCase):
         edited_note = Note.objects.get(id=self.note.id)
         notes_count_after = Note.objects.filter(author=self.author).count()
         self.assertEqual(notes_count_after, notes_count_before)
-        self.assertEqual(edited_note.text, self.NEW_NOTE_TEXT)
+        self.assertEqual(edited_note.text, self.form_data['text'])
         self.assertEqual(edited_note.title, self.form_data['title'])
         self.assertEqual(edited_note.slug, self.form_data['slug'])
+        self.assertEqual(edited_note.author, self.author)
 
     def test_user_cant_edit_note_of_another_user(self):
         """Пользователь не может редактировать чужие заметки."""
@@ -145,3 +159,4 @@ class TestCreatePost(TestCase):
         self.assertEqual(unedited_note.text, self.note.text)
         self.assertEqual(unedited_note.title, self.note.title)
         self.assertEqual(unedited_note.slug, self.note.slug)
+        self.assertEqual(unedited_note.author, self.author)

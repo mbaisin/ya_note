@@ -23,6 +23,7 @@ URL_SIGNUP = reverse('users:signup')
 
 
 class TestRoutes(TestCase):
+    """Тестирование доступов."""
 
     @classmethod
     def setUpTestData(cls):
@@ -42,45 +43,46 @@ class TestRoutes(TestCase):
         )
 
         cls.URLS = (
-            (URL_ADD, True, False),
-            (URL_LIST, True, False),
-            (URL_EDIT, False, False),
-            (URL_DETAIL, False, False),
-            (URL_DELETE, False, False),
-            (URL_SUCCESS, True, False),
-            (URL_HOME, True, True),
-            (URL_LOGIN, True, True),
-            (URL_LOGOUT, True, True),
-            (URL_SIGNUP, True, True),
+            URL_ADD,
+            URL_LIST,
+            URL_EDIT,
+            URL_DETAIL,
+            URL_DELETE,
+            URL_SUCCESS,
+            URL_HOME,
+            URL_LOGIN,
+            URL_LOGOUT,
+            URL_SIGNUP
         )
 
     def test_urls_for_author(self):
-        """
+        """Проверка доступов автора.
         Проверка доступов аутентифицированного пользователя, который
         является автором заметки.
         Страницы отдельной заметки, удаления и редактирования заметки
         должны быть доступны только автору.
         """
-        for url, _, _ in self.URLS:
+        for url in self.URLS:
             with self.subTest(user=self.author, url=url):
                 response = self.author_client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_urls_for_non_author(self):
-        """
+        """Проверка доступов пользователя без авторства.
         Проверка доступов аутентифицированного пользователя, который
         не является автором заметки.
         При попытке доступа к заметке - ошибка 404.
         """
-        for url, non_author_access, _ in self.URLS:
+        urls_no_access = (URL_EDIT, URL_DETAIL, URL_DELETE)
+        for url in self.URLS:
             with self.subTest(user=self.reader, url=url):
                 response = self.reader_client.get(url)
-                if non_author_access:
-                    self.assertEqual(response.status_code, HTTPStatus.OK)
-                else:
+                if url in urls_no_access:
                     self.assertEqual(
                         response.status_code, HTTPStatus.NOT_FOUND
                     )
+                else:
+                    self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_urls_for_anonymous(self):
         """Проверка доступов неаутентифицированного пользователя.
@@ -89,11 +91,19 @@ class TestRoutes(TestCase):
         редактирования или удаления заметки анонимный пользователь
         перенаправляется на страницу логина.
         """
-        for url, _, anon_access in self.URLS:
+        urls_no_access = (
+            URL_ADD,
+            URL_LIST,
+            URL_EDIT,
+            URL_DETAIL,
+            URL_DELETE,
+            URL_SUCCESS,
+        )
+        for url in self.URLS:
             with self.subTest(url=url):
                 response = self.client.get(url)
-                if anon_access:
-                    self.assertEqual(response.status_code, HTTPStatus.OK)
-                else:
+                if url in urls_no_access:
                     redirect_url = f'{URL_LOGIN}?next={url}'
                     self.assertRedirects(response, redirect_url)
+                else:
+                    self.assertEqual(response.status_code, HTTPStatus.OK)

@@ -15,6 +15,8 @@ URL_LIST = reverse('notes:list')
 
 
 class TestPages(TestCase):
+    """Тестирование контента."""
+
     @classmethod
     def setUpTestData(cls):
         cls.author_1 = User.objects.create(username='Пользователь-Автор-1')
@@ -31,7 +33,7 @@ class TestPages(TestCase):
         )
 
     def test_note_pages_have_forms(self):
-        """На страницы создания и редактирования заметки передаются формы"""
+        """На страницы создания и редактирования заметки передаются формы."""
         urls = (
             URL_ADD,
             URL_EDIT,
@@ -43,7 +45,7 @@ class TestPages(TestCase):
                 self.assertIsInstance(response.context['form'], NoteForm)
 
     def test_author_can_see_own_notes(self):
-        """Пользователь видит свои заметки"""
+        """Пользователь видит свои заметки."""
         response = self.user_client_1.get(URL_LIST)
         self.assertIn('object_list', response.context)
         user_1_notes_in_context = response.context['object_list']
@@ -55,7 +57,7 @@ class TestPages(TestCase):
         self.assertEqual(note.slug, self.note_1.slug)
 
     def test_non_author_cannot_see_other_users_notes(self):
-        """Пользователь не видит чужие заметки"""
+        """Пользователь не видит чужие заметки."""
         response = self.user_client_2.get(URL_LIST)
         self.assertIn('object_list', response.context)
         user_2_notes_in_context = response.context['object_list']
